@@ -1,0 +1,22 @@
+[project]
+name = "tts-soniox-dictation"
+version = "0.1.0"
+description = "Desktop dictation with Soniox real-time transcription"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "python-dotenv>=1.0",
+    "websockets>=12.0",
+]
+
+[project.scripts]
+soniox-dictate = "soniox_dictation.app:main"
+soniox-dictate-command = "soniox_dictation.command:main"
+
+[build-system]
+requires = ["uv_build>=0.8.5,<0.9.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "soniox_dictation"
+module-root = "src"
