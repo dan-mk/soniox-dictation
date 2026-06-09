@@ -54,7 +54,7 @@ class DictationController:
         self.ipc = IpcServer(self.handle_ipc_command)
 
     def start(self) -> None:
-        notice = wayland_notice()
+        notice = wayland_notice(self.settings.inject_backend)
         if notice:
             print(notice, file=sys.stderr)
         self.ipc.start()
@@ -63,6 +63,7 @@ class DictationController:
             "Soniox Dictation rodando. Ctrl+Espaço inicia; Enter finaliza; Esc cancela.",
             flush=True,
         )
+        print(f"Backend de injeção: {self.settings.inject_backend}.", flush=True)
         if notice:
             notify("Soniox Dictation", "Wayland detectado; veja o terminal se o atalho falhar.")
         self.injector.prepare()

@@ -21,7 +21,10 @@ class Settings:
     debug: bool
     copy_only: bool
     restore_clipboard: bool
+    inject_backend: str
     portal_paste_shortcut: str
+    ydotool_command: str
+    ydotool_socket: str | None
 
 
 def _csv(value: str) -> list[str]:
@@ -91,9 +94,22 @@ def load_settings(debug: bool = False, copy_only: bool = False) -> Settings:
         else _default_audio_command(sample_rate, channels)
     )
 
-    portal_paste_shortcut = os.getenv("SONIOX_PORTAL_PASTE_SHORTCUT", "ctrl+shift+v").strip().lower()
+    portal_paste_shortcut = (
+        os.getenv("SONIOX_PORTAL_PASTE_SHORTCUT", "ctrl+shift+v").strip().lower()
+    )
     if portal_paste_shortcut not in {"ctrl+v", "ctrl+shift+v"}:
-        raise ValueError("SONIOX_PORTAL_PASTE_SHORTCUT precisa ser 'ctrl+v' ou 'ctrl+shift+v'.")
+        raise ValueError(
+            "SONIOX_PORTAL_PASTE_SHORTCUT precisa ser 'ctrl+v' ou 'ctrl+shift+v'."
+        )
+
+    inject_backend = os.getenv("SONIOX_INJECT_BACKEND", "portal").strip().lower()
+    if inject_backend not in {"auto", "portal", "ydotool", "clipboard"}:
+        raise ValueError(
+            "SONIOX_INJECT_BACKEND precisa ser 'auto', 'portal', 'ydotool' ou 'clipboard'."
+        )
+
+    ydotool_socket = os.getenv("SONIOX_YDOTOOL_SOCKET", "").strip() or None
+    ydotool_command = os.getenv("SONIOX_YDOTOOL_COMMAND", "ydotool").strip() or "ydotool"
 
     return Settings(
         api_key=api_key,
@@ -106,5 +122,8 @@ def load_settings(debug: bool = False, copy_only: bool = False) -> Settings:
         debug=debug or _bool_env("SONIOX_DEBUG"),
         copy_only=copy_only or _bool_env("SONIOX_COPY_ONLY"),
         restore_clipboard=_bool_env("SONIOX_RESTORE_CLIPBOARD"),
+        inject_backend=inject_backend,
         portal_paste_shortcut=portal_paste_shortcut,
+        ydotool_command=ydotool_command,
+        ydotool_socket=ydotool_socket,
     )

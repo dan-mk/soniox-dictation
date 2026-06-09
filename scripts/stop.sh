@@ -7,6 +7,10 @@ LOCK_PID="/tmp/soniox-dictation-${UID:-user}.lock.pid"
 cd "$ROOT_DIR"
 export UV_CACHE_DIR="${UV_CACHE_DIR:-"$ROOT_DIR/.uv-cache"}"
 
+if command -v systemctl >/dev/null 2>&1; then
+  systemctl --user stop soniox-dictation.service soniox-dictation-codex.service >/dev/null 2>&1 || true
+fi
+
 if uv run soniox-dictate-command status >/dev/null 2>&1; then
   if uv run soniox-dictate-command quit >/dev/null 2>&1; then
     sleep 1
