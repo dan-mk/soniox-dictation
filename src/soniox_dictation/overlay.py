@@ -56,9 +56,14 @@ def _install_css(screen: Gdk.Screen | None) -> None:
 
 
 class _IndicatorWindow(Gtk.Window):
-    def __init__(self, on_stop_requested: Callable[[], None] | None = None) -> None:
+    def __init__(
+        self,
+        on_stop_requested: Callable[[], None] | None = None,
+        on_cancel_requested: Callable[[], None] | None = None,
+    ) -> None:
         super().__init__(type=Gtk.WindowType.TOPLEVEL)
         self._on_stop_requested = on_stop_requested
+        self._on_cancel_requested = on_cancel_requested
         self._is_recording = False
 
         self.set_decorated(False)
@@ -137,16 +142,25 @@ class _IndicatorWindow(Gtk.Window):
     def _on_key_press(self, _widget: Gtk.Widget, event: Gdk.EventKey) -> bool:
         if not self._is_recording:
             return False
-        if event.keyval not in (Gdk.KEY_Return, Gdk.KEY_KP_Enter, Gdk.KEY_ISO_Enter):
-            return False
-        if self._on_stop_requested is not None:
-            self._on_stop_requested()
-        return True
+        if event.keyval in (Gdk.KEY_Return, Gdk.KEY_KP_Enter, Gdk.KEY_ISO_Enter):
+            if self._on_stop_requested is not None:
+                self._on_stop_requested()
+            return True
+        if event.keyval == Gdk.KEY_Escape:
+            if self._on_cancel_requested is not None:
+                self._on_cancel_requested()
+            return True
+        return False
 
 
 class RecordingOverlay:
-    def __init__(self, on_stop_requested: Callable[[], None] | None = None) -> None:
+    def __init__(
+        self,
+        on_stop_requested: Callable[[], None] | None = None,
+        on_cancel_requested: Callable[[], None] | None = None,
+    ) -> None:
         self._on_stop_requested = on_stop_requested
+        self._on_cancel_requested = on_cancel_requested
         self._windows: list[_IndicatorWindow] = []
         self._seconds = 0
         self._timer_id = 0
@@ -154,12 +168,12 @@ class RecordingOverlay:
 
         _install_css(Gdk.Screen.get_default())
 
-    def start_recording(self, stop_hint: str = "Enter para finalizar") -> None:
+    def start_recording(self) -> None:
         self._seconds = 0
         self._is_recording = True
         self._ensure_windows()
         for window in self._windows:
-            window.set_tooltip_text(stop_hint)
+            window.set_tooltip_text(None)
             window.set_recording(True)
             window.set_title("Gravando")
             window.set_timer("00:00")
@@ -190,6 +204,9 @@ class RecordingOverlay:
         GLib.timeout_add(4500, self._hide_once)
 
     def hide_for_paste(self) -> None:
+        self.hide_now()
+
+    def hide_now(self) -> None:
         self._is_recording = False
         self._stop_timer()
         self._hide_windows()
@@ -202,7 +219,9 @@ class RecordingOverlay:
         monitor_count = max(monitor_count, 1)
 
         while len(self._windows) < monitor_count:
-            self._windows.append(_IndicatorWindow(self._on_stop_requested))
+            self._windows.append(
+                _IndicatorWindow(self._on_stop_requested, self._on_cancel_requested)
+            )
         while len(self._windows) > monitor_count:
             window = self._windows.pop()
             window.hide_overlay()

@@ -46,12 +46,12 @@ class TranscriptionThread(threading.Thread):
 class DictationController:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
-        self.overlay = RecordingOverlay(self.stop_recording)
+        self.overlay = RecordingOverlay(self.stop_recording, self.cancel_recording)
         self.injector = TextInjector(settings)
         self.worker: TranscriptionThread | None = None
         self.focus = None
+        self.cancel_requested = False
         self.ipc = IpcServer(self.handle_ipc_command)
-        self.stop_hint = "Enter para finalizar"
 
     def start(self) -> None:
         notice = wayland_notice()
@@ -59,7 +59,10 @@ class DictationController:
             print(notice, file=sys.stderr)
         self.ipc.start()
 
-        print("Soniox Dictation rodando. Ctrl+Espaço inicia; Enter finaliza.", flush=True)
+        print(
+            "Soniox Dictation rodando. Ctrl+Espaço inicia; Enter finaliza; Esc cancela.",
+            flush=True,
+        )
         if notice:
             notify("Soniox Dictation", "Wayland detectado; veja o terminal se o atalho falhar.")
         self.injector.prepare()
@@ -69,7 +72,8 @@ class DictationController:
             return False
 
         self.focus = self.injector.capture_focus()
-        self.overlay.start_recording(self.stop_hint)
+        self.cancel_requested = False
+        self.overlay.start_recording()
 
         self.worker = TranscriptionThread(self.settings, self)
         self.worker.start()
@@ -88,11 +92,25 @@ class DictationController:
         self.worker.request_stop()
         return False
 
+    def cancel_recording(self) -> bool:
+        if self.worker is None:
+            return False
+        self.cancel_requested = True
+        self.overlay.hide_now()
+        self.worker.request_stop()
+        return False
+
     def on_progress(self, _text: str) -> bool:
         return False
 
     def on_completed(self, text: str) -> bool:
         self.worker = None
+
+        if self.cancel_requested:
+            self.cancel_requested = False
+            self.focus = None
+            self.overlay.hide_now()
+            return False
 
         self.overlay.hide_for_paste()
         time.sleep(0.35)
@@ -106,6 +124,12 @@ class DictationController:
 
     def on_failed(self, message: str) -> bool:
         self.worker = None
+
+        if self.cancel_requested:
+            self.cancel_requested = False
+            self.focus = None
+            self.overlay.hide_now()
+            return False
 
         self.overlay.set_error(message)
         notify("Soniox Dictation: erro", message)
