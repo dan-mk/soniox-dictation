@@ -1,6 +1,7 @@
 .env
 .agents/
 .codex/
+.local/
 .venv/
 .uv-cache/
 __pycache__/
