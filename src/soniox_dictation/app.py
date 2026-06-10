@@ -2,10 +2,23 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import os
 import signal
 import sys
 import threading
 import time
+
+# GNOME Wayland ignores absolute positioning for normal GTK toplevels. Prefer
+# XWayland when available so the non-fullscreen overlay can span each monitor.
+if (
+    "GDK_BACKEND" not in os.environ
+    and (
+        os.getenv("XDG_SESSION_TYPE", "").lower() == "wayland"
+        or os.getenv("WAYLAND_DISPLAY")
+    )
+    and os.getenv("DISPLAY")
+):
+    os.environ["GDK_BACKEND"] = "x11,wayland"
 
 import gi
 

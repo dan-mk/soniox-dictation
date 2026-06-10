@@ -7,7 +7,7 @@ Ditado desktop em tempo real usando Soniox, GNOME Wayland e injeção de atalho 
 - A transcrição final vai para o clipboard com `wl-copy`.
 - No Wayland, o GNOME RemoteDesktop portal envia `Ctrl+Shift+V` para colar no campo focado.
 - `ydotool` pode ser usado como backend alternativo, desde que o `ydotoold` esteja estável.
-- Um overlay compacto no rodapé mostra quando a gravação está ativa.
+- Um overlay compacto centralizado mostra quando a gravação está ativa.
 
 ## Requisitos
 

@@ -55,6 +55,13 @@ def _install_css(screen: Gdk.Screen | None) -> None:
     )
 
 
+def _get_monitor_workarea(screen: Gdk.Screen, monitor_index: int) -> Gdk.Rectangle:
+    workarea = screen.get_monitor_workarea(monitor_index)
+    if workarea.width > 0 and workarea.height > 0:
+        return workarea
+    return screen.get_monitor_geometry(monitor_index)
+
+
 class _IndicatorWindow(Gtk.Window):
     def __init__(
         self,
@@ -120,10 +127,12 @@ class _IndicatorWindow(Gtk.Window):
         self._box.pack_start(self._bottom_spacer, True, True, 0)
 
     def show_on_monitor(self, screen: Gdk.Screen, monitor_index: int) -> None:
-        geometry = screen.get_monitor_geometry(monitor_index)
-        self.set_default_size(geometry.width, geometry.height)
-        self.resize(geometry.width, geometry.height)
-        self.fullscreen_on_monitor(screen, monitor_index)
+        workarea = _get_monitor_workarea(screen, monitor_index)
+        self.unfullscreen()
+        self.unmaximize()
+        self.set_default_size(workarea.width, workarea.height)
+        self.move(workarea.x, workarea.y)
+        self.resize(workarea.width, workarea.height)
         self.show_all()
 
     def set_recording(self, is_recording: bool) -> None:
@@ -137,7 +146,7 @@ class _IndicatorWindow(Gtk.Window):
 
     def hide_overlay(self) -> None:
         self.hide()
-        self.unfullscreen()
+        self.unmaximize()
 
     def _on_key_press(self, _widget: Gtk.Widget, event: Gdk.EventKey) -> bool:
         if not self._is_recording:
