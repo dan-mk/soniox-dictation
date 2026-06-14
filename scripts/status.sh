@@ -7,7 +7,16 @@ LOCK_PID="/tmp/soniox-dictation-${UID:-user}.lock.pid"
 cd "$ROOT_DIR"
 export UV_CACHE_DIR="${UV_CACHE_DIR:-"$ROOT_DIR/.uv-cache"}"
 
-if uv run soniox-dictate-command status 2>/dev/null; then
+command_client() {
+  local command="$1"
+  if [ -x "$ROOT_DIR/.venv/bin/soniox-dictate-command" ]; then
+    timeout 4s "$ROOT_DIR/.venv/bin/soniox-dictate-command" "$command"
+  else
+    timeout 10s uv run soniox-dictate-command "$command"
+  fi
+}
+
+if command_client status 2>/dev/null; then
   exit 0
 fi
 

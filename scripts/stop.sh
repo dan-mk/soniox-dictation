@@ -7,12 +7,17 @@ LOCK_PID="/tmp/soniox-dictation-${UID:-user}.lock.pid"
 cd "$ROOT_DIR"
 export UV_CACHE_DIR="${UV_CACHE_DIR:-"$ROOT_DIR/.uv-cache"}"
 
-if command -v systemctl >/dev/null 2>&1; then
-  systemctl --user stop soniox-dictation.service soniox-dictation-codex.service >/dev/null 2>&1 || true
-fi
+command_client() {
+  local command="$1"
+  if [ -x "$ROOT_DIR/.venv/bin/soniox-dictate-command" ]; then
+    timeout 4s "$ROOT_DIR/.venv/bin/soniox-dictate-command" "$command"
+  else
+    timeout 10s uv run soniox-dictate-command "$command"
+  fi
+}
 
-if uv run soniox-dictate-command status >/dev/null 2>&1; then
-  if uv run soniox-dictate-command quit >/dev/null 2>&1; then
+if command_client status >/dev/null 2>&1; then
+  if command_client quit >/dev/null 2>&1; then
     sleep 1
   fi
 fi
@@ -31,5 +36,10 @@ fi
 
 pkill -TERM -f "$ROOT_DIR/.venv/bin/soniox-dictate" >/dev/null 2>&1 || true
 pkill -TERM -f "uv run soniox-dictate" >/dev/null 2>&1 || true
+
+if command -v systemctl >/dev/null 2>&1; then
+  timeout 5s systemctl --user stop soniox-dictation.service soniox-dictation-codex.service >/dev/null 2>&1 || true
+  timeout 3s systemctl --user reset-failed soniox-dictation.service soniox-dictation-codex.service >/dev/null 2>&1 || true
+fi
 
 echo "Soniox Dictation parado."

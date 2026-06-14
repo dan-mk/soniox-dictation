@@ -9,9 +9,9 @@ export UV_CACHE_DIR="${UV_CACHE_DIR:-"$ROOT_DIR/.uv-cache"}"
 command_client() {
   local command="$1"
   if [ -x "$ROOT_DIR/.venv/bin/soniox-dictate-command" ]; then
-    "$ROOT_DIR/.venv/bin/soniox-dictate-command" "$command"
+    timeout 4s "$ROOT_DIR/.venv/bin/soniox-dictate-command" "$command"
   else
-    uv run soniox-dictate-command "$command"
+    timeout 10s uv run soniox-dictate-command "$command"
   fi
 }
 
