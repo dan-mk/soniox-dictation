@@ -4,7 +4,10 @@ Ditado desktop em tempo real para GNOME/Wayland usando Soniox. No setup atual,
 a colagem automática usa `ydotool`/`ydotoold`: o texto final é copiado para o
 clipboard com `wl-copy` e o `ydotool` dispara o atalho de colar no app focado.
 
-- `Ctrl+Espaço`: inicia ou finaliza a gravação pelo atalho GNOME.
+- `Ctrl+Espaço`: inicia a gravação e cola o resultado com `Ctrl+V`; se a
+  gravação já estiver ativa, finaliza.
+- `Ctrl+Shift+Espaço`: inicia a gravação e cola o resultado com
+  `Ctrl+Shift+V`; se a gravação já estiver ativa, finaliza.
 - `Enter`: finaliza enquanto o overlay de gravação estiver ativo.
 - `Esc`: cancela a gravação atual sem colar nada.
 - Um overlay compacto aparece durante a gravação, com contador de tempo.
@@ -37,9 +40,10 @@ SONIOX_YDOTOOL_COMMAND=/usr/local/bin/ydotool-v1.0.4
 SONIOX_YDOTOOL_SOCKET=/tmp/.ydotool_socket
 ```
 
-`SONIOX_PASTE_SHORTCUT` controla o atalho enviado pelo `ydotool`. Use
-`ctrl+shift+v` para apps/terminais que colam sem formatação, ou `ctrl+v` quando
-esse for o atalho correto no app focado.
+`SONIOX_PASTE_SHORTCUT` controla o atalho enviado pelo `ydotool` quando o app é
+controlado sem um modo explícito de colagem. Os atalhos GNOME instalados passam
+esse modo automaticamente: `Ctrl+Espaço` usa `ctrl+v` e `Ctrl+Shift+Espaço` usa
+`ctrl+shift+v`.
 
 Opções adicionais:
 
@@ -81,13 +85,16 @@ Modos úteis:
 
 ```bash
 ./scripts/toggle.sh
+./scripts/toggle.sh ctrl+v
+./scripts/toggle.sh ctrl+shift+v
 ./scripts/status.sh
 ./scripts/restart.sh
 ./scripts/stop.sh
 ```
 
-`toggle.sh` é o comando usado pelo atalho GNOME: se o app já estiver rodando,
-ele alterna a gravação; se não estiver, inicia o app e começa a gravar.
+`toggle.sh` é o comando usado pelos atalhos GNOME: se o app já estiver rodando,
+ele alterna a gravação; se não estiver, inicia o app e começa a gravar. Sem
+argumento, usa o fallback de `SONIOX_PASTE_SHORTCUT`.
 
 ## Autostart
 
@@ -112,7 +119,7 @@ Logs:
 
 ## Atalho GNOME
 
-Instalar `Ctrl+Espaço`:
+Instalar `Ctrl+Espaço` e `Ctrl+Shift+Espaço`:
 
 ```bash
 ./scripts/install-gnome-shortcut.sh

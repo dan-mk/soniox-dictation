@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import shlex
 import subprocess
 from pathlib import Path
 
@@ -10,8 +11,20 @@ from pathlib import Path
 MEDIA_SCHEMA = "org.gnome.settings-daemon.plugins.media-keys"
 CUSTOM_SCHEMA = "org.gnome.settings-daemon.plugins.media-keys.custom-keybinding"
 CUSTOM_KEY = "custom-keybindings"
-SHORTCUT_PATH = "/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/soniox_dictation/"
-BINDING = "<Control>space"
+SHORTCUTS = (
+    {
+        "path": "/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/soniox_dictation/",
+        "name": "Soniox Dictation (Ctrl+V)",
+        "binding": "<Control>space",
+        "paste_shortcut": "ctrl+v",
+    },
+    {
+        "path": "/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/soniox_dictation_shift/",
+        "name": "Soniox Dictation (Ctrl+Shift+V)",
+        "binding": "<Control><Shift>space",
+        "paste_shortcut": "ctrl+shift+v",
+    },
+)
 
 
 def run_gsettings(*args: str) -> str:
@@ -48,30 +61,44 @@ def set_bindings(bindings: list[str]) -> None:
 
 def install() -> None:
     root = Path(__file__).resolve().parents[1]
-    command = str(root / "scripts" / "toggle.sh")
+    toggle_script = root / "scripts" / "toggle.sh"
 
     bindings = get_bindings()
-    if SHORTCUT_PATH not in bindings:
-        bindings.append(SHORTCUT_PATH)
+    original_bindings = list(bindings)
+    for shortcut in SHORTCUTS:
+        if shortcut["path"] not in bindings:
+            bindings.append(shortcut["path"])
+    if bindings != original_bindings:
         set_bindings(bindings)
 
-    schema = f"{CUSTOM_SCHEMA}:{SHORTCUT_PATH}"
-    run_gsettings("set", schema, "name", "Soniox Dictation")
-    run_gsettings("set", schema, "command", command)
-    run_gsettings("set", schema, "binding", BINDING)
+    for shortcut in SHORTCUTS:
+        schema = f"{CUSTOM_SCHEMA}:{shortcut['path']}"
+        command = (
+            f"{shlex.quote(str(toggle_script))} "
+            f"{shlex.quote(shortcut['paste_shortcut'])}"
+        )
+        run_gsettings("set", schema, "name", shortcut["name"])
+        run_gsettings("set", schema, "command", command)
+        run_gsettings("set", schema, "binding", shortcut["binding"])
 
-    print(f"Atalho GNOME instalado: {BINDING} -> {command}")
+    for shortcut in SHORTCUTS:
+        print(
+            "Atalho GNOME instalado: "
+            f"{shortcut['binding']} -> {toggle_script} {shortcut['paste_shortcut']}"
+        )
 
 
 def uninstall() -> None:
-    bindings = [item for item in get_bindings() if item != SHORTCUT_PATH]
+    shortcut_paths = {shortcut["path"] for shortcut in SHORTCUTS}
+    bindings = [item for item in get_bindings() if item not in shortcut_paths]
     set_bindings(bindings)
 
-    schema = f"{CUSTOM_SCHEMA}:{SHORTCUT_PATH}"
-    for key in ("name", "command", "binding"):
-        subprocess.run(["gsettings", "reset", schema, key], check=False)
+    for shortcut in SHORTCUTS:
+        schema = f"{CUSTOM_SCHEMA}:{shortcut['path']}"
+        for key in ("name", "command", "binding"):
+            subprocess.run(["gsettings", "reset", schema, key], check=False)
 
-    print("Atalho GNOME removido.")
+    print("Atalhos GNOME removidos.")
 
 
 def main() -> int:

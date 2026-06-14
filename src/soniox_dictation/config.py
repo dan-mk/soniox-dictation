@@ -8,6 +8,8 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
+SUPPORTED_PASTE_SHORTCUTS = {"ctrl+v", "ctrl+shift+v"}
+
 
 @dataclass(frozen=True)
 class Settings:
@@ -94,7 +96,7 @@ def load_settings(debug: bool = False, copy_only: bool = False) -> Settings:
     )
 
     paste_shortcut = os.getenv("SONIOX_PASTE_SHORTCUT", "ctrl+shift+v").strip().lower()
-    if paste_shortcut not in {"ctrl+v", "ctrl+shift+v"}:
+    if paste_shortcut not in SUPPORTED_PASTE_SHORTCUTS:
         raise ValueError(
             "SONIOX_PASTE_SHORTCUT precisa ser 'ctrl+v' ou 'ctrl+shift+v'."
         )

@@ -46,7 +46,12 @@ class TextInjector:
             return FocusHandle(("clipboard",))
         return FocusHandle(("ydotool", "clipboard"))
 
-    def insert_text(self, text: str, focus: FocusHandle) -> tuple[bool, str]:
+    def insert_text(
+        self,
+        text: str,
+        focus: FocusHandle,
+        paste_shortcut: str | None = None,
+    ) -> tuple[bool, str]:
         text = text.strip()
         if not text:
             return False, "Transcrição vazia."
@@ -63,7 +68,7 @@ class TextInjector:
                     errors.append("ydotool indisponível.")
                     continue
                 try:
-                    self._ydotool.paste(self.settings.paste_shortcut)
+                    self._ydotool.paste(paste_shortcut or self.settings.paste_shortcut)
                     return True, "Texto colado com ydotool."
                 except YdotoolKeyboardError as exc:
                     errors.append(f"ydotool falhou: {exc}")

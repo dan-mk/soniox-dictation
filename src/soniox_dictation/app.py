@@ -25,7 +25,7 @@ import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gtk  # noqa: E402
 
-from .config import Settings, load_settings
+from .config import SUPPORTED_PASTE_SHORTCUTS, Settings, load_settings
 from .inject import TextInjector, notify, wayland_notice
 from .ipc import IpcServer
 from .overlay import RecordingOverlay
@@ -63,6 +63,7 @@ class DictationController:
         self.injector = TextInjector(settings)
         self.worker: TranscriptionThread | None = None
         self.focus = None
+        self.active_paste_shortcut: str | None = None
         self.cancel_requested = False
         self.ipc = IpcServer(self.handle_ipc_command)
 
@@ -73,18 +74,20 @@ class DictationController:
         self.ipc.start()
 
         print(
-            "Soniox Dictation rodando. Ctrl+Espaço inicia; Enter finaliza; Esc cancela.",
+            "Soniox Dictation rodando. Ctrl+Espaço cola com Ctrl+V; "
+            "Ctrl+Shift+Espaço cola com Ctrl+Shift+V; Enter finaliza; Esc cancela.",
             flush=True,
         )
         print(f"Backend de injeção: {self.settings.inject_backend}.", flush=True)
         if notice:
             notify("Soniox Dictation", "Wayland detectado; veja o terminal se o atalho falhar.")
 
-    def start_recording(self) -> bool:
+    def start_recording(self, paste_shortcut: str | None = None) -> bool:
         if self.worker is not None:
             return False
 
         self.focus = self.injector.capture_focus()
+        self.active_paste_shortcut = paste_shortcut
         self.cancel_requested = False
         self.overlay.start_recording()
 
@@ -122,12 +125,18 @@ class DictationController:
         if self.cancel_requested:
             self.cancel_requested = False
             self.focus = None
+            self.active_paste_shortcut = None
             self.overlay.hide_now()
             return False
 
         self.overlay.hide_for_paste()
         time.sleep(0.35)
-        ok, message = self.injector.insert_text(text, self.focus)
+        ok, message = self.injector.insert_text(
+            text,
+            self.focus,
+            self.active_paste_shortcut,
+        )
+        self.active_paste_shortcut = None
         time.sleep(0.2)
         self.overlay.set_done(message)
         if not ok:
@@ -141,9 +150,11 @@ class DictationController:
         if self.cancel_requested:
             self.cancel_requested = False
             self.focus = None
+            self.active_paste_shortcut = None
             self.overlay.hide_now()
             return False
 
+        self.active_paste_shortcut = None
         self.overlay.set_error(message)
         notify("Soniox Dictation: erro", message)
         return False
@@ -169,30 +180,54 @@ class DictationController:
         return response["value"]
 
     def _apply_ipc_command(self, command: str) -> str:
-        if command == "start":
+        action, paste_shortcut, error = self._parse_ipc_command(command)
+        if error:
+            return error
+
+        if action == "start":
             if self.worker is not None:
                 return "ok recording"
-            self.start_recording()
+            self.start_recording(paste_shortcut)
             return "ok started"
-        if command == "stop":
+        if action == "stop":
             if self.worker is None:
                 return "ok idle"
             self.stop_recording()
             return "ok stopping"
-        if command == "toggle":
+        if action == "toggle":
             if self.worker is None:
-                self.start_recording()
+                self.start_recording(paste_shortcut)
                 return "ok started"
             self.stop_recording()
             return "ok stopping"
-        if command == "status":
+        if action == "status":
             return "recording" if self.worker is not None else "idle"
-        if command == "quit":
+        if action == "quit":
             if self.worker is not None:
                 self.stop_recording()
             GLib.timeout_add(100, Gtk.main_quit)
             return "ok quitting"
         return f"error comando inválido: {command!r}"
+
+    def _parse_ipc_command(self, command: str) -> tuple[str, str | None, str | None]:
+        parts = command.split()
+        if not parts:
+            return "", None, "error comando vazio"
+
+        action = parts[0]
+        if action not in {"start", "stop", "toggle", "status", "quit"}:
+            return action, None, f"error comando inválido: {command!r}"
+        if len(parts) > 2:
+            return action, None, f"error comando inválido: {command!r}"
+        if len(parts) == 1:
+            return action, None, None
+
+        paste_shortcut = parts[1]
+        if action not in {"start", "toggle"}:
+            return action, None, "error atalho de colagem só vale para start/toggle"
+        if paste_shortcut not in SUPPORTED_PASTE_SHORTCUTS:
+            return action, None, f"error atalho de colagem inválido: {paste_shortcut!r}"
+        return action, paste_shortcut, None
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
