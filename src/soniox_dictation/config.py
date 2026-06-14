@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import os
-import shlex
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
@@ -9,6 +8,9 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 SUPPORTED_PASTE_SHORTCUTS = {"ctrl+v", "ctrl+shift+v"}
+DEFAULT_PASTE_SHORTCUT = "ctrl+shift+v"
+DEFAULT_SAMPLE_RATE = 16000
+DEFAULT_CHANNELS = 1
 
 
 @dataclass(frozen=True)
@@ -19,34 +21,12 @@ class Settings:
     sample_rate: int
     channels: int
     audio_command: list[str]
-    debug: bool
-    copy_only: bool
-    restore_clipboard: bool
-    inject_backend: str
-    paste_shortcut: str
     ydotool_command: str
     ydotool_socket: str | None
 
 
 def _csv(value: str) -> list[str]:
     return [item.strip() for item in value.split(",") if item.strip()]
-
-
-def _int_env(name: str, default: int) -> int:
-    raw = os.getenv(name)
-    if raw is None or raw.strip() == "":
-        return default
-    try:
-        return int(raw)
-    except ValueError as exc:
-        raise ValueError(f"{name} precisa ser um inteiro, recebido: {raw!r}") from exc
-
-
-def _bool_env(name: str, default: bool = False) -> bool:
-    raw = os.getenv(name)
-    if raw is None or raw.strip() == "":
-        return default
-    return raw.strip().lower() in {"1", "true", "yes", "y", "on", "sim"}
 
 
 def _default_audio_command(sample_rate: int, channels: int) -> list[str]:
@@ -79,34 +59,15 @@ def _default_audio_command(sample_rate: int, channels: int) -> list[str]:
     )
 
 
-def load_settings(debug: bool = False, copy_only: bool = False) -> Settings:
+def load_settings() -> Settings:
     load_dotenv(Path.cwd() / ".env")
 
     api_key = os.getenv("SONIOX_API_KEY")
     if not api_key:
         raise RuntimeError("SONIOX_API_KEY não encontrada no .env ou ambiente.")
 
-    sample_rate = _int_env("SONIOX_SAMPLE_RATE", 16000)
-    channels = _int_env("SONIOX_CHANNELS", 1)
-    audio_command_env = os.getenv("SONIOX_AUDIO_COMMAND", "").strip()
-    audio_command = (
-        shlex.split(audio_command_env)
-        if audio_command_env
-        else _default_audio_command(sample_rate, channels)
-    )
-
-    paste_shortcut = os.getenv("SONIOX_PASTE_SHORTCUT", "ctrl+shift+v").strip().lower()
-    if paste_shortcut not in SUPPORTED_PASTE_SHORTCUTS:
-        raise ValueError(
-            "SONIOX_PASTE_SHORTCUT precisa ser 'ctrl+v' ou 'ctrl+shift+v'."
-        )
-
-    inject_backend = os.getenv("SONIOX_INJECT_BACKEND", "ydotool").strip().lower()
-    if inject_backend not in {"ydotool", "clipboard"}:
-        raise ValueError(
-            "SONIOX_INJECT_BACKEND precisa ser 'ydotool' ou 'clipboard'."
-        )
-
+    sample_rate = DEFAULT_SAMPLE_RATE
+    channels = DEFAULT_CHANNELS
     ydotool_socket = os.getenv("SONIOX_YDOTOOL_SOCKET", "").strip() or None
     ydotool_command = os.getenv("SONIOX_YDOTOOL_COMMAND", "ydotool").strip() or "ydotool"
 
@@ -116,12 +77,7 @@ def load_settings(debug: bool = False, copy_only: bool = False) -> Settings:
         language_hints=_csv(os.getenv("SONIOX_LANGUAGE_HINTS", "pt,en")),
         sample_rate=sample_rate,
         channels=channels,
-        audio_command=audio_command,
-        debug=debug or _bool_env("SONIOX_DEBUG"),
-        copy_only=copy_only or _bool_env("SONIOX_COPY_ONLY"),
-        restore_clipboard=_bool_env("SONIOX_RESTORE_CLIPBOARD"),
-        inject_backend=inject_backend,
-        paste_shortcut=paste_shortcut,
+        audio_command=_default_audio_command(sample_rate, channels),
         ydotool_command=ydotool_command,
         ydotool_socket=ydotool_socket,
     )

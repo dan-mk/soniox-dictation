@@ -4,21 +4,15 @@ import os
 import shutil
 import subprocess
 import time
-from dataclasses import dataclass
 
 import gi
 
 gi.require_version("Gdk", "3.0")
 gi.require_version("Gtk", "3.0")
-from gi.repository import Gdk, GLib, Gtk  # noqa: E402
+from gi.repository import Gdk, Gtk  # noqa: E402
 
-from .config import Settings
+from .config import DEFAULT_PASTE_SHORTCUT, Settings
 from .ydotool import YdotoolKeyboard, YdotoolKeyboardError
-
-
-@dataclass(frozen=True)
-class FocusHandle:
-    backends: tuple[str, ...]
 
 
 class TextInjector:
@@ -26,7 +20,7 @@ class TextInjector:
         self.settings = settings
         self._ydotool: YdotoolKeyboard | None = (
             YdotoolKeyboard(settings.ydotool_command, settings.ydotool_socket)
-            if settings.inject_backend == "ydotool" and self._has_ydotool_command()
+            if self._has_ydotool_command()
             else None
         )
 
@@ -41,15 +35,9 @@ class TextInjector:
             return os.access(self.settings.ydotool_command, os.X_OK)
         return shutil.which(self.settings.ydotool_command) is not None
 
-    def capture_focus(self) -> FocusHandle:
-        if self.settings.inject_backend == "clipboard":
-            return FocusHandle(("clipboard",))
-        return FocusHandle(("ydotool", "clipboard"))
-
     def insert_text(
         self,
         text: str,
-        focus: FocusHandle,
         paste_shortcut: str | None = None,
     ) -> tuple[bool, str]:
         text = text.strip()
@@ -58,21 +46,16 @@ class TextInjector:
 
         self._set_clipboard(text)
         time.sleep(0.12)
-        if self.settings.copy_only:
-            return False, "Texto copiado para o clipboard."
 
         errors: list[str] = []
-        for backend in focus.backends:
-            if backend == "ydotool":
-                if self._ydotool is None:
-                    errors.append("ydotool indisponível.")
-                    continue
-                try:
-                    self._ydotool.paste(paste_shortcut or self.settings.paste_shortcut)
-                    return True, "Texto colado com ydotool."
-                except YdotoolKeyboardError as exc:
-                    errors.append(f"ydotool falhou: {exc}")
-                    continue
+        if self._ydotool is None:
+            errors.append("ydotool indisponível.")
+        else:
+            try:
+                self._ydotool.paste(paste_shortcut or DEFAULT_PASTE_SHORTCUT)
+                return True, "Texto colado com ydotool."
+            except YdotoolKeyboardError as exc:
+                errors.append(f"ydotool falhou: {exc}")
 
         if errors:
             return (
@@ -87,19 +70,8 @@ class TextInjector:
             return
 
         clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
-        old_text = clipboard.wait_for_text() or ""
         clipboard.set_text(text, -1)
         clipboard.store()
-
-        if self.settings.restore_clipboard:
-            GLib.timeout_add(1500, self._restore_clipboard_if_unchanged, text, old_text)
-
-    def _restore_clipboard_if_unchanged(self, expected: str, previous: str) -> bool:
-        clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
-        if clipboard.wait_for_text() == expected:
-            clipboard.set_text(previous, -1)
-            clipboard.store()
-        return False
 
 
 def notify(summary: str, body: str = "") -> None:
@@ -116,24 +88,14 @@ def notify(summary: str, body: str = "") -> None:
         pass
 
 
-def wayland_notice(inject_backend: str = "ydotool") -> str | None:
+def wayland_notice() -> str | None:
     if os.getenv("XDG_SESSION_TYPE", "").lower() != "wayland" and not os.getenv(
         "WAYLAND_DISPLAY"
     ):
         return None
-    if inject_backend == "ydotool":
-        return (
-            "Sessão Wayland detectada. Backend ydotool ativo; se a colagem "
-            "automática falhar, confira ydotool/ydotoold."
-        )
-    if inject_backend == "clipboard":
-        return (
-            "Sessão Wayland detectada. Backend clipboard ativo; a transcrição "
-            "ficará no clipboard."
-        )
     return (
-        "Sessão Wayland detectada. Se a colagem automática não funcionar, confira "
-        "ydotool/ydotoold."
+        "Sessão Wayland detectada. A colagem automática usa ydotool; "
+        "se falhar, confira ydotool/ydotoold."
     )
 
 

@@ -27,43 +27,26 @@ O daemon precisa conseguir abrir `/dev/uinput`.
 
 ## Configuração
 
-Crie um `.env` na raiz do projeto:
+Crie um `.env` a partir do exemplo:
+
+```bash
+cp .env.sample .env
+```
+
+Depois preencha a chave:
 
 ```bash
 SONIOX_API_KEY=...
-SONIOX_LANGUAGE_HINTS=pt,en
-SONIOX_MODEL=stt-rt-v4
-
-SONIOX_INJECT_BACKEND=ydotool
-SONIOX_PASTE_SHORTCUT=ctrl+shift+v
-SONIOX_YDOTOOL_COMMAND=/usr/local/bin/ydotool-v1.0.4
-SONIOX_YDOTOOL_SOCKET=/tmp/.ydotool_socket
 ```
 
-`SONIOX_PASTE_SHORTCUT` controla o atalho enviado pelo `ydotool` quando o app é
-controlado sem um modo explícito de colagem. Os atalhos GNOME instalados passam
-esse modo automaticamente: `Ctrl+Espaço` usa `ctrl+v` e `Ctrl+Shift+Espaço` usa
-`ctrl+shift+v`.
+Sem `SONIOX_YDOTOOL_COMMAND`, o app procura `ydotool` no `PATH`. Sem
+`SONIOX_YDOTOOL_SOCKET`, ele usa o socket padrão do `ydotoold`.
 
-Opções adicionais:
-
-```bash
-SONIOX_COPY_ONLY=false
-SONIOX_RESTORE_CLIPBOARD=false
-SONIOX_SAMPLE_RATE=16000
-SONIOX_CHANNELS=1
-SONIOX_AUDIO_COMMAND=
-SONIOX_DEBUG=false
-```
-
-`SONIOX_INJECT_BACKEND` aceita:
-
-- `ydotool`: backend usado neste setup. Tenta colar com `ydotool` e mantém o
-  texto no clipboard se falhar.
-- `clipboard`: nunca tenta colar automaticamente; só copia a transcrição.
-
-O backend `ydotool` usa keycodes Linux, então foi pensado para `ydotool` `v1.x`.
-Se usar uma versão local, aponte `SONIOX_YDOTOOL_COMMAND` para o binário.
+A colagem automática sempre tenta usar `ydotool` e mantém a transcrição no
+clipboard se falhar. Os atalhos GNOME instalados passam o modo de colagem
+automaticamente: `Ctrl+Espaço` usa `Ctrl+V`; `Ctrl+Shift+Espaço` usa
+`Ctrl+Shift+V`. Quando o controle é chamado sem modo explícito, o fallback fixo
+é `Ctrl+Shift+V`.
 
 ## Rodar
 
@@ -71,15 +54,8 @@ Se usar uma versão local, aponte `SONIOX_YDOTOOL_COMMAND` para o binário.
 ./run.sh
 ```
 
-Antes de testar a colagem automática, confirme que o `ydotoold` está rodando com
-o mesmo socket configurado em `SONIOX_YDOTOOL_SOCKET`.
-
-Modos úteis:
-
-```bash
-./run.sh --copy-only
-./run.sh --debug
-```
+Antes de testar a colagem automática, confirme que o `ydotoold` está rodando. Se
+você definiu `SONIOX_YDOTOOL_SOCKET`, o daemon precisa usar o mesmo socket.
 
 ## Controle
 
@@ -94,7 +70,7 @@ Modos úteis:
 
 `toggle.sh` é o comando usado pelos atalhos GNOME: se o app já estiver rodando,
 ele alterna a gravação; se não estiver, inicia o app e começa a gravar. Sem
-argumento, usa o fallback de `SONIOX_PASTE_SHORTCUT`.
+argumento, usa o fallback fixo `ctrl+shift+v`.
 
 ## Autostart
 

@@ -66,7 +66,9 @@ async def transcribe_realtime(
     accumulator = TranscriptAccumulator()
     bytes_per_sample = 2
     chunk_ms = 120
-    chunk_size = int(settings.sample_rate * settings.channels * bytes_per_sample * chunk_ms / 1000)
+    chunk_size = int(
+        settings.sample_rate * settings.channels * bytes_per_sample * chunk_ms / 1000
+    )
 
     async with websockets.connect(
         SONIOX_STT_URL,
@@ -77,7 +79,7 @@ async def transcribe_realtime(
         await ws.send(json.dumps(_session_config(settings)))
 
         async def send_audio() -> None:
-            async with RawAudioProcess(settings.audio_command, settings.debug) as audio:
+            async with RawAudioProcess(settings.audio_command) as audio:
                 while not stop_event.is_set():
                     chunk = await audio.read(chunk_size)
                     await ws.send(chunk)

@@ -62,13 +62,12 @@ class DictationController:
         self.overlay = RecordingOverlay(self.stop_recording, self.cancel_recording)
         self.injector = TextInjector(settings)
         self.worker: TranscriptionThread | None = None
-        self.focus = None
         self.active_paste_shortcut: str | None = None
         self.cancel_requested = False
         self.ipc = IpcServer(self.handle_ipc_command)
 
     def start(self) -> None:
-        notice = wayland_notice(self.settings.inject_backend)
+        notice = wayland_notice()
         if notice:
             print(notice, file=sys.stderr)
         self.ipc.start()
@@ -78,7 +77,6 @@ class DictationController:
             "Ctrl+Shift+Espaço cola com Ctrl+Shift+V; Enter finaliza; Esc cancela.",
             flush=True,
         )
-        print(f"Backend de injeção: {self.settings.inject_backend}.", flush=True)
         if notice:
             notify("Soniox Dictation", "Wayland detectado; veja o terminal se o atalho falhar.")
 
@@ -86,7 +84,6 @@ class DictationController:
         if self.worker is not None:
             return False
 
-        self.focus = self.injector.capture_focus()
         self.active_paste_shortcut = paste_shortcut
         self.cancel_requested = False
         self.overlay.start_recording()
@@ -124,7 +121,6 @@ class DictationController:
 
         if self.cancel_requested:
             self.cancel_requested = False
-            self.focus = None
             self.active_paste_shortcut = None
             self.overlay.hide_now()
             return False
@@ -133,7 +129,6 @@ class DictationController:
         time.sleep(0.35)
         ok, message = self.injector.insert_text(
             text,
-            self.focus,
             self.active_paste_shortcut,
         )
         self.active_paste_shortcut = None
@@ -149,7 +144,6 @@ class DictationController:
 
         if self.cancel_requested:
             self.cancel_requested = False
-            self.focus = None
             self.active_paste_shortcut = None
             self.overlay.hide_now()
             return False
@@ -232,19 +226,13 @@ class DictationController:
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Ditado Soniox em tempo real.")
-    parser.add_argument("--debug", action="store_true", help="ativa logs e mensagens extras")
-    parser.add_argument(
-        "--copy-only",
-        action="store_true",
-        help="não tenta colar/digitar; apenas deixa a transcrição no clipboard",
-    )
     return parser.parse_args(argv)
 
 
 def main(argv: list[str] | None = None) -> int:
-    args = parse_args(argv or sys.argv[1:])
+    parse_args(sys.argv[1:] if argv is None else argv)
     try:
-        settings = load_settings(debug=args.debug, copy_only=args.copy_only)
+        settings = load_settings()
     except Exception as exc:
         print(f"Erro de configuração: {exc}", file=sys.stderr)
         return 2

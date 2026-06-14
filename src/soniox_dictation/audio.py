@@ -8,9 +8,8 @@ class AudioCaptureError(RuntimeError):
 
 
 class RawAudioProcess:
-    def __init__(self, command: list[str], debug: bool = False) -> None:
+    def __init__(self, command: list[str]) -> None:
         self.command = command
-        self.debug = debug
         self._process: asyncio.subprocess.Process | None = None
 
     async def __aenter__(self) -> "RawAudioProcess":
