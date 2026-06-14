@@ -78,7 +78,8 @@ class DictationController:
         print(
             "Soniox Dictation rodando. Ctrl+Espaço cola com Ctrl+V; "
             "Ctrl+Shift+Espaço cola com Ctrl+Shift+V; durante a gravação, "
-            "Enter finaliza e Esc cancela.",
+            "esses atalhos finalizam sobrescrevendo o modo de colagem, "
+            "Enter finaliza mantendo o modo inicial e Esc cancela.",
             flush=True,
         )
         if notice:
@@ -102,10 +103,12 @@ class DictationController:
             return self.start_recording()
         return self.stop_recording()
 
-    def stop_recording(self) -> bool:
+    def stop_recording(self, paste_shortcut: str | None = None) -> bool:
         if self.worker is None:
             self.recording_shortcuts.disable()
             return False
+        if paste_shortcut is not None:
+            self.active_paste_shortcut = paste_shortcut
         self.recording_shortcuts.disable()
         self.overlay.set_stopping()
         self.worker.request_stop()
@@ -210,7 +213,7 @@ class DictationController:
             if self.worker is None:
                 self.start_recording(paste_shortcut)
                 return "ok started"
-            self.stop_recording()
+            self.stop_recording(paste_shortcut)
             return "ok stopping"
         if action == "status":
             return "recording" if self.worker is not None else "idle"

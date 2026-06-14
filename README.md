@@ -5,10 +5,12 @@ a colagem automática usa `ydotool`/`ydotoold`: o texto final é copiado para o
 clipboard com `wl-copy` e o `ydotool` dispara o atalho de colar no app focado.
 
 - `Ctrl+Espaço`: inicia a gravação e cola o resultado com `Ctrl+V`; se a
-  gravação já estiver ativa, finaliza.
+  gravação já estiver ativa, finaliza e cola com `Ctrl+V`.
 - `Ctrl+Shift+Espaço`: inicia a gravação e cola o resultado com
-  `Ctrl+Shift+V`; se a gravação já estiver ativa, finaliza.
-- `Enter`: finaliza enquanto a gravação estiver ativa.
+  `Ctrl+Shift+V`; se a gravação já estiver ativa, finaliza e cola com
+  `Ctrl+Shift+V`.
+- `Enter`: finaliza enquanto a gravação estiver ativa, preservando o modo de
+  colagem escolhido no início.
 - `Esc`: cancela a gravação atual sem colar nada enquanto a gravação estiver
   ativa.
 - Uma janela compacta aparece em cada monitor durante a gravação, com contador
