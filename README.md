@@ -8,9 +8,11 @@ clipboard com `wl-copy` e o `ydotool` dispara o atalho de colar no app focado.
   gravação já estiver ativa, finaliza.
 - `Ctrl+Shift+Espaço`: inicia a gravação e cola o resultado com
   `Ctrl+Shift+V`; se a gravação já estiver ativa, finaliza.
-- `Enter`: finaliza enquanto o overlay de gravação estiver ativo.
-- `Esc`: cancela a gravação atual sem colar nada.
-- Um overlay compacto aparece durante a gravação, com contador de tempo.
+- `Enter`: finaliza enquanto a gravação estiver ativa.
+- `Esc`: cancela a gravação atual sem colar nada enquanto a gravação estiver
+  ativa.
+- Uma janela compacta aparece em cada monitor durante a gravação, com contador
+  de tempo.
 - Se a colagem automática falhar, a transcrição fica no clipboard.
 
 ## Requisitos
@@ -100,6 +102,10 @@ Instalar `Ctrl+Espaço` e `Ctrl+Shift+Espaço`:
 ```bash
 ./scripts/install-gnome-shortcut.sh
 ```
+
+Durante a gravação, o app registra temporariamente `Enter` para finalizar e
+`Esc` para cancelar. Esses atalhos são removidos quando a gravação termina,
+cancela, falha ou quando o app fecha.
 
 Remover:
 

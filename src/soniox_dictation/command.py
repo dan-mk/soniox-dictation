@@ -9,7 +9,10 @@ from .ipc import IpcClientError, send_command
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Controla uma instância do Soniox Dictation.")
-    parser.add_argument("command", choices=["start", "stop", "toggle", "status", "quit"])
+    parser.add_argument(
+        "command",
+        choices=["start", "stop", "cancel", "toggle", "status", "quit"],
+    )
     parser.add_argument(
         "paste_shortcut",
         nargs="?",

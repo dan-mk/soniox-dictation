@@ -25,6 +25,11 @@ SHORTCUTS = (
         "paste_shortcut": "ctrl+shift+v",
     },
 )
+RUNTIME_SHORTCUT_PATHS = (
+    "/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/soniox_dictation_recording_enter/",
+    "/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/soniox_dictation_recording_keypad_enter/",
+    "/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/soniox_dictation_recording_escape/",
+)
 
 
 def run_gsettings(*args: str) -> str:
@@ -88,13 +93,31 @@ def install() -> None:
         )
 
 
+def cleanup_runtime() -> None:
+    shortcut_paths = set(RUNTIME_SHORTCUT_PATHS)
+    bindings = [item for item in get_bindings() if item not in shortcut_paths]
+    set_bindings(bindings)
+
+    for path in RUNTIME_SHORTCUT_PATHS:
+        schema = f"{CUSTOM_SCHEMA}:{path}"
+        for key in ("name", "command", "binding"):
+            subprocess.run(["gsettings", "reset", schema, key], check=False)
+
+    print("Atalhos temporarios removidos.")
+
+
 def uninstall() -> None:
     shortcut_paths = {shortcut["path"] for shortcut in SHORTCUTS}
+    shortcut_paths.update(RUNTIME_SHORTCUT_PATHS)
     bindings = [item for item in get_bindings() if item not in shortcut_paths]
     set_bindings(bindings)
 
     for shortcut in SHORTCUTS:
         schema = f"{CUSTOM_SCHEMA}:{shortcut['path']}"
+        for key in ("name", "command", "binding"):
+            subprocess.run(["gsettings", "reset", schema, key], check=False)
+    for path in RUNTIME_SHORTCUT_PATHS:
+        schema = f"{CUSTOM_SCHEMA}:{path}"
         for key in ("name", "command", "binding"):
             subprocess.run(["gsettings", "reset", schema, key], check=False)
 
@@ -103,13 +126,15 @@ def uninstall() -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Instala/remove atalho GNOME para o Soniox Dictation.")
-    parser.add_argument("action", choices=["install", "uninstall"])
+    parser.add_argument("action", choices=["install", "uninstall", "cleanup-runtime"])
     args = parser.parse_args()
 
     if args.action == "install":
         install()
-    else:
+    elif args.action == "uninstall":
         uninstall()
+    else:
+        cleanup_runtime()
     return 0
 
 

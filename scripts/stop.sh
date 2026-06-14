@@ -42,4 +42,6 @@ if command -v systemctl >/dev/null 2>&1; then
   timeout 3s systemctl --user reset-failed soniox-dictation.service soniox-dictation-codex.service >/dev/null 2>&1 || true
 fi
 
+"$ROOT_DIR/scripts/gnome-shortcut.py" cleanup-runtime >/dev/null 2>&1 || true
+
 echo "Soniox Dictation parado."

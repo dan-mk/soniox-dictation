@@ -9,6 +9,12 @@ gi.require_version("Gtk", "3.0")
 from gi.repository import Gdk, GLib, Gtk  # noqa: E402
 
 
+INDICATOR_MARGIN = 16
+INDICATOR_WIDTH = 278
+INDICATOR_HEIGHT = 64
+WINDOW_TITLE_PREFIX = "Soniox Dictation"
+
+
 CSS = b"""
 #overlay {
     background: transparent;
@@ -74,15 +80,17 @@ class _IndicatorWindow(Gtk.Window):
         self._is_recording = False
 
         self.set_decorated(False)
+        self.set_type_hint(Gdk.WindowTypeHint.NORMAL)
         self.set_keep_above(True)
         self.set_accept_focus(True)
-        self.set_focus_on_map(True)
-        self.set_skip_taskbar_hint(True)
-        self.set_skip_pager_hint(True)
-        self.set_default_size(640, 360)
+        self.set_focus_on_map(False)
+        self.set_skip_taskbar_hint(False)
+        self.set_skip_pager_hint(False)
+        self.set_default_size(INDICATOR_WIDTH, INDICATOR_HEIGHT)
         self.set_resizable(False)
         self.add_events(Gdk.EventMask.KEY_PRESS_MASK)
         self.connect("key-press-event", self._on_key_press)
+        self.connect("delete-event", self._on_delete_event)
 
         screen = Gdk.Screen.get_default()
         if screen is not None:
@@ -95,14 +103,11 @@ class _IndicatorWindow(Gtk.Window):
         self._box.set_name("overlay")
         self.add(self._box)
 
-        self._top_spacer = Gtk.Box()
-        self._bottom_spacer = Gtk.Box()
-
         self._bubble = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
         self._bubble.set_name("bubble")
-        self._bubble.set_size_request(250, 58)
-        self._bubble.set_halign(Gtk.Align.CENTER)
-        self._bubble.set_valign(Gtk.Align.CENTER)
+        self._bubble.set_size_request(INDICATOR_WIDTH, INDICATOR_HEIGHT)
+        self._bubble.set_halign(Gtk.Align.FILL)
+        self._bubble.set_valign(Gtk.Align.FILL)
 
         self._row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
         self._row.set_name("row")
@@ -122,23 +127,29 @@ class _IndicatorWindow(Gtk.Window):
         self._row.pack_start(self._title, False, False, 0)
         self._row.pack_start(self._timer, False, False, 0)
         self._bubble.pack_start(self._row, True, True, 0)
-        self._box.pack_start(self._top_spacer, True, True, 0)
-        self._box.pack_start(self._bubble, False, False, 0)
-        self._box.pack_start(self._bottom_spacer, True, True, 0)
+        self._box.pack_start(self._bubble, True, True, 0)
+
+        self.set_title("Gravando")
 
     def show_on_monitor(self, screen: Gdk.Screen, monitor_index: int) -> None:
         workarea = _get_monitor_workarea(screen, monitor_index)
+        width = min(INDICATOR_WIDTH, max(workarea.width, 1))
+        height = min(INDICATOR_HEIGHT, max(workarea.height, 1))
+        x = workarea.x + min(INDICATOR_MARGIN, max(workarea.width - width, 0))
+        y = workarea.y + min(INDICATOR_MARGIN, max(workarea.height - height, 0))
+
         self.unfullscreen()
         self.unmaximize()
-        self.set_default_size(workarea.width, workarea.height)
-        self.move(workarea.x, workarea.y)
-        self.resize(workarea.width, workarea.height)
+        self.set_default_size(width, height)
+        self.move(x, y)
+        self.resize(width, height)
         self.show_all()
 
     def set_recording(self, is_recording: bool) -> None:
         self._is_recording = is_recording
 
     def set_title(self, text: str) -> None:
+        super().set_title(f"{WINDOW_TITLE_PREFIX} - {text}")
         self._title.set_text(text)
 
     def set_timer(self, text: str) -> None:
@@ -160,6 +171,13 @@ class _IndicatorWindow(Gtk.Window):
                 self._on_cancel_requested()
             return True
         return False
+
+    def _on_delete_event(self, *_args: object) -> bool:
+        if self._is_recording and self._on_cancel_requested is not None:
+            self._on_cancel_requested()
+        else:
+            self.hide_overlay()
+        return True
 
 
 class RecordingOverlay:

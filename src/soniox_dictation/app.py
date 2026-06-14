@@ -9,7 +9,7 @@ import threading
 import time
 
 # GNOME Wayland ignores absolute positioning for normal GTK toplevels. Prefer
-# XWayland when available so the non-fullscreen overlay can span each monitor.
+# XWayland when available so compact indicator windows can be placed per monitor.
 if (
     "GDK_BACKEND" not in os.environ
     and (
@@ -26,6 +26,7 @@ gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gtk  # noqa: E402
 
 from .config import SUPPORTED_PASTE_SHORTCUTS, Settings, load_settings
+from .gnome_shortcuts import RecordingShortcutManager
 from .inject import TextInjector, notify, wayland_notice
 from .ipc import IpcServer
 from .overlay import RecordingOverlay
@@ -60,6 +61,7 @@ class DictationController:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
         self.overlay = RecordingOverlay(self.stop_recording, self.cancel_recording)
+        self.recording_shortcuts = RecordingShortcutManager()
         self.injector = TextInjector(settings)
         self.worker: TranscriptionThread | None = None
         self.active_paste_shortcut: str | None = None
@@ -70,11 +72,13 @@ class DictationController:
         notice = wayland_notice()
         if notice:
             print(notice, file=sys.stderr)
+        self.recording_shortcuts.disable()
         self.ipc.start()
 
         print(
             "Soniox Dictation rodando. Ctrl+Espaço cola com Ctrl+V; "
-            "Ctrl+Shift+Espaço cola com Ctrl+Shift+V; Enter finaliza; Esc cancela.",
+            "Ctrl+Shift+Espaço cola com Ctrl+Shift+V; durante a gravação, "
+            "Enter finaliza e Esc cancela.",
             flush=True,
         )
         if notice:
@@ -86,9 +90,9 @@ class DictationController:
 
         self.active_paste_shortcut = paste_shortcut
         self.cancel_requested = False
-        self.overlay.start_recording()
-
         self.worker = TranscriptionThread(self.settings, self)
+        self.overlay.start_recording()
+        self.recording_shortcuts.enable()
         self.worker.start()
 
         return False
@@ -100,14 +104,18 @@ class DictationController:
 
     def stop_recording(self) -> bool:
         if self.worker is None:
+            self.recording_shortcuts.disable()
             return False
+        self.recording_shortcuts.disable()
         self.overlay.set_stopping()
         self.worker.request_stop()
         return False
 
     def cancel_recording(self) -> bool:
         if self.worker is None:
+            self.recording_shortcuts.disable()
             return False
+        self.recording_shortcuts.disable()
         self.cancel_requested = True
         self.overlay.hide_now()
         self.worker.request_stop()
@@ -118,6 +126,7 @@ class DictationController:
 
     def on_completed(self, text: str) -> bool:
         self.worker = None
+        self.recording_shortcuts.disable()
 
         if self.cancel_requested:
             self.cancel_requested = False
@@ -141,6 +150,7 @@ class DictationController:
 
     def on_failed(self, message: str) -> bool:
         self.worker = None
+        self.recording_shortcuts.disable()
 
         if self.cancel_requested:
             self.cancel_requested = False
@@ -157,6 +167,7 @@ class DictationController:
         if self.worker is not None and self.worker.is_alive():
             self.worker.request_stop()
             self.worker.join(1.5)
+        self.recording_shortcuts.disable()
         self.ipc.stop()
 
     def handle_ipc_command(self, command: str) -> str:
@@ -185,9 +196,16 @@ class DictationController:
             return "ok started"
         if action == "stop":
             if self.worker is None:
+                self.recording_shortcuts.disable()
                 return "ok idle"
             self.stop_recording()
             return "ok stopping"
+        if action == "cancel":
+            if self.worker is None:
+                self.recording_shortcuts.disable()
+                return "ok idle"
+            self.cancel_recording()
+            return "ok cancelling"
         if action == "toggle":
             if self.worker is None:
                 self.start_recording(paste_shortcut)
@@ -209,7 +227,7 @@ class DictationController:
             return "", None, "error comando vazio"
 
         action = parts[0]
-        if action not in {"start", "stop", "toggle", "status", "quit"}:
+        if action not in {"start", "stop", "cancel", "toggle", "status", "quit"}:
             return action, None, f"error comando inválido: {command!r}"
         if len(parts) > 2:
             return action, None, f"error comando inválido: {command!r}"
