@@ -52,8 +52,6 @@ def _session_config(settings: Settings) -> dict:
         "audio_format": "pcm_s16le",
         "sample_rate": settings.sample_rate,
         "num_channels": settings.channels,
-        "enable_endpoint_detection": True,
-        "max_endpoint_delay_ms": settings.max_endpoint_delay_ms,
     }
     if settings.language_hints:
         config["language_hints"] = settings.language_hints

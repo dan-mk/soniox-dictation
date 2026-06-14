@@ -16,7 +16,6 @@ class Settings:
     language_hints: list[str]
     sample_rate: int
     channels: int
-    max_endpoint_delay_ms: int
     audio_command: list[str]
     debug: bool
     copy_only: bool
@@ -117,7 +116,6 @@ def load_settings(debug: bool = False, copy_only: bool = False) -> Settings:
         language_hints=_csv(os.getenv("SONIOX_LANGUAGE_HINTS", "pt,en")),
         sample_rate=sample_rate,
         channels=channels,
-        max_endpoint_delay_ms=_int_env("SONIOX_MAX_ENDPOINT_DELAY_MS", 500),
         audio_command=audio_command,
         debug=debug or _bool_env("SONIOX_DEBUG"),
         copy_only=copy_only or _bool_env("SONIOX_COPY_ONLY"),
