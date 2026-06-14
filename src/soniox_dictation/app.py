@@ -79,7 +79,6 @@ class DictationController:
         print(f"Backend de injeção: {self.settings.inject_backend}.", flush=True)
         if notice:
             notify("Soniox Dictation", "Wayland detectado; veja o terminal se o atalho falhar.")
-        self.injector.prepare()
 
     def start_recording(self) -> bool:
         if self.worker is not None:

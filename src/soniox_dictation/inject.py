@@ -3,7 +3,6 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
-import threading
 import time
 from dataclasses import dataclass
 
@@ -14,7 +13,6 @@ gi.require_version("Gtk", "3.0")
 from gi.repository import Gdk, GLib, Gtk  # noqa: E402
 
 from .config import Settings
-from .portal import PortalKeyboard, PortalKeyboardError
 from .ydotool import YdotoolKeyboard, YdotoolKeyboardError
 
 
@@ -26,21 +24,11 @@ class FocusHandle:
 class TextInjector:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
-        self._portal: PortalKeyboard | None = (
-            PortalKeyboard()
-            if self._is_wayland and settings.inject_backend in {"auto", "portal"}
-            else None
-        )
         self._ydotool: YdotoolKeyboard | None = (
             YdotoolKeyboard(settings.ydotool_command, settings.ydotool_socket)
-            if (
-                settings.inject_backend == "ydotool"
-                or (self._is_wayland and settings.inject_backend == "auto")
-            )
-            and self._has_ydotool_command()
+            if settings.inject_backend == "ydotool" and self._has_ydotool_command()
             else None
         )
-        self._portal_prepare_started = False
 
     @property
     def _is_wayland(self) -> bool:
@@ -56,37 +44,7 @@ class TextInjector:
     def capture_focus(self) -> FocusHandle:
         if self.settings.inject_backend == "clipboard":
             return FocusHandle(("clipboard",))
-        if self.settings.inject_backend == "ydotool":
-            return FocusHandle(("ydotool", "clipboard"))
-        if self.settings.inject_backend == "portal":
-            return FocusHandle(("portal", "clipboard"))
-
-        backends: list[str] = []
-        if self._ydotool is not None:
-            backends.append("ydotool")
-        if self._is_wayland and self._portal is not None:
-            backends.append("portal")
-        backends.append("clipboard")
-        return FocusHandle(tuple(backends))
-
-    def prepare(self) -> None:
-        if self._portal is None or self._portal_prepare_started:
-            return
-        if self.settings.inject_backend == "auto" and self._ydotool is not None:
-            return
-        self._portal_prepare_started = True
-
-        def prepare_portal() -> None:
-            try:
-                self._portal.prepare()
-            except PortalKeyboardError as exc:
-                notify("Soniox Dictation: portal indisponível", str(exc))
-
-        threading.Thread(
-            target=prepare_portal,
-            name="soniox-portal-prepare",
-            daemon=True,
-        ).start()
+        return FocusHandle(("ydotool", "clipboard"))
 
     def insert_text(self, text: str, focus: FocusHandle) -> tuple[bool, str]:
         text = text.strip()
@@ -105,21 +63,10 @@ class TextInjector:
                     errors.append("ydotool indisponível.")
                     continue
                 try:
-                    self._ydotool.paste(self.settings.portal_paste_shortcut)
+                    self._ydotool.paste(self.settings.paste_shortcut)
                     return True, "Texto colado com ydotool."
                 except YdotoolKeyboardError as exc:
                     errors.append(f"ydotool falhou: {exc}")
-                    continue
-
-            if backend == "portal":
-                if self._portal is None:
-                    errors.append("RemoteDesktop portal indisponível.")
-                    continue
-                try:
-                    self._portal.paste(self.settings.portal_paste_shortcut)
-                    return True, "Texto colado com RemoteDesktop portal."
-                except PortalKeyboardError as exc:
-                    errors.append(f"RemoteDesktop portal falhou: {exc}")
                     continue
 
         if errors:
@@ -164,7 +111,7 @@ def notify(summary: str, body: str = "") -> None:
         pass
 
 
-def wayland_notice(inject_backend: str = "portal") -> str | None:
+def wayland_notice(inject_backend: str = "ydotool") -> str | None:
     if os.getenv("XDG_SESSION_TYPE", "").lower() != "wayland" and not os.getenv(
         "WAYLAND_DISPLAY"
     ):
@@ -174,14 +121,14 @@ def wayland_notice(inject_backend: str = "portal") -> str | None:
             "Sessão Wayland detectada. Backend ydotool ativo; se a colagem "
             "automática falhar, confira ydotool/ydotoold."
         )
-    if inject_backend == "portal":
+    if inject_backend == "clipboard":
         return (
-            "Sessão Wayland detectada. Backend RemoteDesktop portal ativo; "
-            "autorize o controle remoto/teclado se o GNOME pedir."
+            "Sessão Wayland detectada. Backend clipboard ativo; a transcrição "
+            "ficará no clipboard."
         )
     return (
         "Sessão Wayland detectada. Se a colagem automática não funcionar, confira "
-        "ydotool/ydotoold ou autorize o RemoteDesktop portal."
+        "ydotool/ydotoold."
     )
 
 
