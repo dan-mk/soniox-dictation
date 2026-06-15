@@ -82,7 +82,7 @@ class _IndicatorWindow(Gtk.Window):
         self.set_decorated(False)
         self.set_type_hint(Gdk.WindowTypeHint.NORMAL)
         self.set_keep_above(True)
-        self.set_accept_focus(True)
+        self.set_accept_focus(False)
         self.set_focus_on_map(False)
         self.set_skip_taskbar_hint(False)
         self.set_skip_pager_hint(False)
