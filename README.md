@@ -1,8 +1,15 @@
 # Soniox Dictation
 
-Ditado desktop em tempo real para GNOME/Wayland usando Soniox. No setup atual,
-a colagem automática usa `ydotool`/`ydotoold`: o texto final é copiado para o
-clipboard com `wl-copy` e o `ydotool` dispara o atalho de colar no app focado.
+Ditado desktop em tempo real para GNOME usando Soniox. A colagem automática
+funciona tanto em X11 quanto em Wayland:
+
+- **X11** (recomendado/testado): o texto final é copiado para o clipboard (via
+  GTK) e o `xdotool` reativa a janela de origem e dispara o atalho de colar.
+- **Wayland**: o texto é copiado com `wl-copy` e o `ydotool`/`ydotoold` dispara
+  o atalho de colar.
+
+O app detecta a sessão automaticamente: usa `xdotool` em X11 e `ydotool` em
+Wayland (com fallback para `ydotool` caso o `xdotool` não esteja disponível).
 
 - `Ctrl+Espaço`: inicia a gravação e cola o resultado com `Ctrl+V`; se a
   gravação já estiver ativa, finaliza e cola com `Ctrl+V`.
@@ -19,15 +26,31 @@ clipboard com `wl-copy` e o `ydotool` dispara o atalho de colar no app focado.
 
 ## Requisitos
 
+Comuns às duas sessões:
+
 ```bash
-sudo apt install python3-gi gir1.2-gtk-3.0 pulseaudio-utils wl-clipboard
+sudo apt install python3-gi gir1.2-gtk-3.0 pulseaudio-utils
 ```
 
-O projeto também espera que `uv` esteja instalado, porque `./run.sh` cria/sincroniza
-o ambiente Python com ele.
+- `pulseaudio-utils` traz o `parec`, usado para capturar o áudio do microfone.
+- `uv` precisa estar instalado: `./run.sh` cria/sincroniza o ambiente Python com ele.
 
-Para a colagem automática no Wayland, instale e rode `ydotool`/`ydotoold`.
-O daemon precisa conseguir abrir `/dev/uinput`.
+**Em X11**, instale o `xdotool` (faz a colagem automática):
+
+```bash
+sudo apt install xdotool
+```
+
+**Em Wayland**, instale o `wl-clipboard` e o `ydotool`/`ydotoold`:
+
+```bash
+sudo apt install wl-clipboard ydotool
+```
+
+No Wayland, rode o `ydotoold` (o daemon precisa conseguir abrir `/dev/uinput`).
+Atenção: o `ydotool` dos repositórios do Ubuntu (0.1.8) é antigo e incompatível
+com este app — em Wayland é preciso o `ydotool` 1.x (compilado da fonte ou de um
+pacote mais novo).
 
 ## Configuração
 
@@ -43,14 +66,16 @@ Depois preencha a chave:
 SONIOX_API_KEY=...
 ```
 
-Sem `SONIOX_YDOTOOL_COMMAND`, o app procura `ydotool` no `PATH`. Sem
-`SONIOX_YDOTOOL_SOCKET`, ele usa o socket padrão do `ydotoold`.
+Em X11 não há nada a configurar além da chave: o app usa o `xdotool` do `PATH`.
 
-A colagem automática sempre tenta usar `ydotool` e mantém a transcrição no
-clipboard se falhar. Os atalhos GNOME instalados passam o modo de colagem
-automaticamente: `Ctrl+Espaço` usa `Ctrl+V`; `Ctrl+Shift+Espaço` usa
-`Ctrl+Shift+V`. Quando o controle é chamado sem modo explícito, o fallback fixo
-é `Ctrl+Shift+V`.
+As variáveis `SONIOX_YDOTOOL_COMMAND` e `SONIOX_YDOTOOL_SOCKET` só valem para o
+Wayland: sem a primeira, o app procura `ydotool` no `PATH`; sem a segunda, usa o
+socket padrão do `ydotoold`.
+
+A colagem automática mantém a transcrição no clipboard se falhar. Os atalhos
+GNOME instalados passam o modo de colagem automaticamente: `Ctrl+Espaço` usa
+`Ctrl+V`; `Ctrl+Shift+Espaço` usa `Ctrl+Shift+V`. Quando o controle é chamado
+sem modo explícito, o fallback fixo é `Ctrl+Shift+V`.
 
 ## Rodar
 
@@ -58,8 +83,9 @@ automaticamente: `Ctrl+Espaço` usa `Ctrl+V`; `Ctrl+Shift+Espaço` usa
 ./run.sh
 ```
 
-Antes de testar a colagem automática, confirme que o `ydotoold` está rodando. Se
-você definiu `SONIOX_YDOTOOL_SOCKET`, o daemon precisa usar o mesmo socket.
+Em X11 não há daemon a iniciar. Em Wayland, antes de testar a colagem
+automática confirme que o `ydotoold` está rodando; se você definiu
+`SONIOX_YDOTOOL_SOCKET`, o daemon precisa usar o mesmo socket.
 
 ## Controle
 

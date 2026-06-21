@@ -65,6 +65,7 @@ class DictationController:
         self.injector = TextInjector(settings)
         self.worker: TranscriptionThread | None = None
         self.active_paste_shortcut: str | None = None
+        self.target_window: str | None = None
         self.cancel_requested = False
         self.ipc = IpcServer(self.handle_ipc_command)
 
@@ -90,6 +91,7 @@ class DictationController:
             return False
 
         self.active_paste_shortcut = paste_shortcut
+        self.target_window = self.injector.capture_target_window()
         self.cancel_requested = False
         self.worker = TranscriptionThread(self.settings, self)
         self.overlay.start_recording()
@@ -138,18 +140,37 @@ class DictationController:
             return False
 
         self.overlay.hide_for_paste()
-        time.sleep(0.35)
-        ok, message = self.injector.insert_text(
-            text,
-            self.active_paste_shortcut,
-        )
-        self.active_paste_shortcut = None
-        time.sleep(0.2)
-        self.overlay.set_done(message)
-        if not ok:
-            notify("Soniox Dictation", message)
 
+        paste_shortcut = self.active_paste_shortcut
+        target_window = self.target_window
+        self.active_paste_shortcut = None
+        self.target_window = None
+
+        # O clipboard é setado aqui na thread principal; a espera + injeção da
+        # tecla vão para uma thread separada para o loop GTK ficar livre e
+        # conseguir responder quando o app de destino pedir o clipboard no paste.
+        if not self.injector.set_clipboard(text):
+            self.overlay.set_done("Transcrição vazia.")
+            return False
+
+        threading.Thread(
+            target=self._paste_worker,
+            args=(paste_shortcut, target_window),
+            daemon=True,
+        ).start()
         return False
+
+    def _paste_worker(self, paste_shortcut: str | None, target_window: str | None) -> None:
+        time.sleep(0.35)
+        ok, message = self.injector.paste_only(paste_shortcut, target_window)
+
+        def finish() -> bool:
+            self.overlay.set_done(message)
+            if not ok:
+                notify("Soniox Dictation", message)
+            return False
+
+        GLib.idle_add(finish)
 
     def on_failed(self, message: str) -> bool:
         self.worker = None

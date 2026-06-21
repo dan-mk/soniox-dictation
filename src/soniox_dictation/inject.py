@@ -12,12 +12,18 @@ gi.require_version("Gtk", "3.0")
 from gi.repository import Gdk, Gtk  # noqa: E402
 
 from .config import DEFAULT_PASTE_SHORTCUT, Settings
+from .xdotool import XdotoolKeyboard, XdotoolKeyboardError
 from .ydotool import YdotoolKeyboard, YdotoolKeyboardError
 
 
 class TextInjector:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
+        self._xdotool: XdotoolKeyboard | None = (
+            XdotoolKeyboard()
+            if not self._is_wayland and shutil.which("xdotool")
+            else None
+        )
         self._ydotool: YdotoolKeyboard | None = (
             YdotoolKeyboard(settings.ydotool_command, settings.ydotool_socket)
             if self._has_ydotool_command()
@@ -35,27 +41,47 @@ class TextInjector:
             return os.access(self.settings.ydotool_command, os.X_OK)
         return shutil.which(self.settings.ydotool_command) is not None
 
-    def insert_text(
-        self,
-        text: str,
-        paste_shortcut: str | None = None,
-    ) -> tuple[bool, str]:
+    def capture_target_window(self) -> str | None:
+        """Memoriza a janela focada agora (X11), para reativá-la antes de colar."""
+        if self._xdotool is None:
+            return None
+        return self._xdotool.capture_active_window()
+
+    def set_clipboard(self, text: str) -> bool:
+        """Copia o texto para o clipboard. Deve rodar na thread principal do GTK
+        para que o loop fique livre e consiga servir o clipboard durante o paste."""
         text = text.strip()
         if not text:
-            return False, "Transcrição vazia."
-
+            return False
         self._set_clipboard(text)
-        time.sleep(0.12)
+        return True
 
+    def paste_only(
+        self,
+        paste_shortcut: str | None = None,
+        target_window: str | None = None,
+    ) -> tuple[bool, str]:
+        """Dispara a tecla de colar. Pode (e deve) rodar fora da thread principal,
+        senão o app não responde quando o app de destino pede o clipboard."""
+        shortcut = paste_shortcut or DEFAULT_PASTE_SHORTCUT
         errors: list[str] = []
-        if self._ydotool is None:
-            errors.append("ydotool indisponível.")
-        else:
+
+        if self._xdotool is not None:
             try:
-                self._ydotool.paste(paste_shortcut or DEFAULT_PASTE_SHORTCUT)
+                self._xdotool.paste(shortcut, target_window)
+                return True, "Texto colado com xdotool."
+            except XdotoolKeyboardError as exc:
+                errors.append(f"xdotool falhou: {exc}")
+
+        if self._ydotool is not None:
+            try:
+                self._ydotool.paste(shortcut)
                 return True, "Texto colado com ydotool."
             except YdotoolKeyboardError as exc:
                 errors.append(f"ydotool falhou: {exc}")
+
+        if self._xdotool is None and self._ydotool is None:
+            errors.append("nenhum injetor (xdotool/ydotool) disponível.")
 
         if errors:
             return (
