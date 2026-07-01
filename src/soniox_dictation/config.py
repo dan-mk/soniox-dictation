@@ -13,10 +13,14 @@ DEFAULT_SAMPLE_RATE = 16000
 DEFAULT_CHANNELS = 1
 
 
+DEFAULT_ASYNC_MODEL = "stt-async-v4"
+
+
 @dataclass(frozen=True)
 class Settings:
     api_key: str
     model: str
+    async_model: str
     language_hints: list[str]
     sample_rate: int
     channels: int
@@ -59,6 +63,12 @@ def _default_audio_command(sample_rate: int, channels: int) -> list[str]:
     )
 
 
+def _default_async_model(model: str) -> str:
+    if "-rt-" in model:
+        return model.replace("-rt-", "-async-")
+    return DEFAULT_ASYNC_MODEL
+
+
 def load_settings() -> Settings:
     load_dotenv(Path.cwd() / ".env")
 
@@ -71,9 +81,13 @@ def load_settings() -> Settings:
     ydotool_socket = os.getenv("SONIOX_YDOTOOL_SOCKET", "").strip() or None
     ydotool_command = os.getenv("SONIOX_YDOTOOL_COMMAND", "ydotool").strip() or "ydotool"
 
+    model = os.getenv("SONIOX_MODEL", "stt-rt-v4").strip() or "stt-rt-v4"
+
     return Settings(
         api_key=api_key,
-        model=os.getenv("SONIOX_MODEL", "stt-rt-v4").strip() or "stt-rt-v4",
+        model=model,
+        async_model=os.getenv("SONIOX_ASYNC_MODEL", "").strip()
+        or _default_async_model(model),
         language_hints=_csv(os.getenv("SONIOX_LANGUAGE_HINTS", "pt,en")),
         sample_rate=sample_rate,
         channels=channels,

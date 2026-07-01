@@ -24,6 +24,21 @@ Wayland (com fallback para `ydotool` caso o `xdotool` não esteja disponível).
   de tempo.
 - Se a colagem automática falhar, a transcrição fica no clipboard.
 
+## Fallback quando a conexão cai
+
+Todo o áudio da gravação é mantido em uma cópia local enquanto você fala. Se a
+conexão em tempo real com a Soniox cair (internet oscilando, websocket fechado
+etc.), a gravação **continua normalmente** e uma notificação avisa que o modo
+fallback foi ativado. Ao finalizar a gravação, o áudio completo é salvo em WAV
+e enviado para a rota assíncrona de arquivos da Soniox (upload com novas
+tentativas + polling), e o texto é colado como de costume.
+
+Se nem a rota assíncrona funcionar (sem internet nenhuma), o WAV fica
+preservado em `~/.cache/soniox-dictation/recordings/` e o caminho aparece na
+mensagem de erro, para você não perder o que falou. O modelo do fallback é
+derivado de `SONIOX_MODEL` (`stt-rt-v4` → `stt-async-v4`) e pode ser sobrescrito
+com `SONIOX_ASYNC_MODEL` no `.env`.
+
 ## Requisitos
 
 Comuns às duas sessões:

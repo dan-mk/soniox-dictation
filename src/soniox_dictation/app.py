@@ -50,6 +50,7 @@ class TranscriptionThread(threading.Thread):
                     self.settings,
                     self._stop_event,
                     lambda update: GLib.idle_add(self.controller.on_progress, update),
+                    lambda detail: GLib.idle_add(self.controller.on_fallback, detail),
                 )
             )
             GLib.idle_add(self.controller.on_completed, text)
@@ -127,6 +128,20 @@ class DictationController:
         return False
 
     def on_progress(self, _text: str) -> bool:
+        return False
+
+    def on_fallback(self, detail: str) -> bool:
+        print(
+            f"Conexão em tempo real caiu ({detail}). "
+            "A gravação continua e será transcrita pela rota assíncrona ao finalizar.",
+            file=sys.stderr,
+            flush=True,
+        )
+        notify(
+            "Soniox Dictation",
+            "Conexão em tempo real caiu. Pode continuar falando: a gravação "
+            "será transcrita ao finalizar.",
+        )
         return False
 
     def on_completed(self, text: str) -> bool:
